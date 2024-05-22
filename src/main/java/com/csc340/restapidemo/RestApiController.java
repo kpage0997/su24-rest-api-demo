@@ -1,153 +1,66 @@
 package com.csc340.restapidemo;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import java.util.List;
 
 @RestController
+@RequestMapping("/students")
 public class RestApiController {
 
-    Map<Integer, Student> studentDatabase = new HashMap<>();
-
-    /**
-     * Hello World API endpoint.
-     *
-     * @return response string.
-     */
-    @GetMapping("/hello")
-    public String hello() {
-        return "Hello, World!";
+    //Returns list of all students
+    @GetMapping("/all")
+    public List<Student> getAllStudents() {
+        return StudentData.readStudents();
     }
 
-    /**
-     * Greeting API endpoint.
-     *
-     * @param name the request parameter
-     * @return the response string.
-     */
-    @GetMapping("/greeting")
-    public String greeting(@RequestParam(value = "name", defaultValue = "Dora") String name) {
-        return "Hola, soy " + name;
-    }
-
-
-    /**
-     * List all students.
-     *
-     * @return the list of students.
-     */
-    @GetMapping("students/all")
-    public Object getAllStudents() {
-        if (studentDatabase.isEmpty()) {
-            studentDatabase.put(1, new Student(1, "sample1", "csc", 3.86));
-        }
-        return studentDatabase.values();
-    }
-
-    /**
-     * Get one student by Id
-     *
-     * @param id the unique student id.
-     * @return the student.
-     */
-    @GetMapping("students/{id}")
+    //Return specific student by id
+    @GetMapping("/{id}")
     public Student getStudentById(@PathVariable int id) {
-        return studentDatabase.get(id);
+        return StudentData.findStudentById(id);
     }
 
-
-    /**
-     * Create a new Student entry.
-     *
-     * @param student the new Student
-     * @return the List of Students.
-     */
-    @PostMapping("students/create")
-    public Object createStudent(@RequestBody Student student) {
-        studentDatabase.put(student.getId(), student);
-        return studentDatabase.values();
+    //Creates a student
+    @PostMapping("/create")
+    public void createStudent(@RequestBody Student student) {
+        List<Student> students = StudentData.readStudents();
+        students.add(student);
+        StudentData.writeStudents(students);
     }
 
-    /**
-     * Delete a Student by id
-     *
-     * @param id the id of student to be deleted.
-     * @return the List of Students.
-     */
-    @DeleteMapping("students/delete/{id}")
-    public Object deleteStudent(@PathVariable int id) {
-        studentDatabase.remove(id);
-        return studentDatabase.values();
-    }
-
-    /**
-     * Get a quote from quotable and make it available our own API endpoint
-     *
-     * @return The quote json response
-     */
-    @GetMapping("/quote")
-    public Object getQuote() {
-        try {
-            String url = "https://api.quotable.io/random";
-            RestTemplate restTemplate = new RestTemplate();
-            ObjectMapper mapper = new ObjectMapper();
-
-            //We are expecting a String object as a response from the above API.
-            String jSonQuote = restTemplate.getForObject(url, String.class);
-            JsonNode root = mapper.readTree(jSonQuote);
-
-            //Parse out the most important info from the response and use it for whatever you want. In this case, just print.
-            String quoteAuthor = root.get("author").asText();
-            String quoteContent = root.get("content").asText();
-            System.out.println("Author: " + quoteAuthor);
-            System.out.println("Quote: " + quoteContent);
-
-            return root;
-
-        } catch (JsonProcessingException ex) {
-            Logger.getLogger(RestApiController.class.getName()).log(Level.SEVERE,
-                    null, ex);
-            return "error in /quote";
-        }
-    }
-
-    /**
-     * Get a list of universities from hipolabs and make them available at our own API
-     * endpoint.
-     *
-     * @return json array
-     */
-    @GetMapping("/univ")
-    public Object getUniversities() {
-        try {
-            String url = "http://universities.hipolabs.com/search?name=sports";
-            RestTemplate restTemplate = new RestTemplate();
-            ObjectMapper mapper = new ObjectMapper();
-
-            String jsonListResponse = restTemplate.getForObject(url, String.class);
-            JsonNode root = mapper.readTree(jsonListResponse);
-
-            //The response from the above API is a JSON Array, which we loop through.
-            for (JsonNode rt : root) {
-                //Extract relevant info from the response and use it for what you want, in this case just print to the console.
-                String name = rt.get("name").asText();
-                String country = rt.get("country").asText();
-                System.out.println(name + ": " + country);
+    //Update student with given id
+    @PutMapping("/update/{id}")
+    public void updateStudent(@PathVariable int id, @RequestBody Student updatedStudent) {
+        List<Student> students = StudentData.readStudents();
+        for (int i = 0; i < students.size(); i++) {
+            if (students.get(i).getId() == id) {
+                students.set(i, updatedStudent);
+                break;
             }
-
-            return root;
-        } catch (JsonProcessingException ex) {
-            Logger.getLogger(RestApiController.class.getName()).log(Level.SEVERE,
-                    null, ex);
-            return "error in /univ";
         }
+        StudentData.writeStudents(students);
+    }
 
+    //Delete student with given id
+    @DeleteMapping("/delete/{id}")
+    public void deleteStudent(@PathVariable int id) {
+        List<Student> students = StudentData.readStudents();
+        students.removeIf(student -> student.getId() == id);
+        StudentData.writeStudents(students);
+    }
+
+    // New endpoint to call the Jokes API; Returns random joke from jokes api
+    @GetMapping("/joke")
+    public String getJoke() {
+        String url = "https://official-joke-api.appspot.com/jokes/random";
+        RestTemplate restTemplate = new RestTemplate();
+        String response = restTemplate.getForObject(url, String.class);
+
+        // Print the response for debugging
+        System.out.println("Joke response: " + response);
+
+        // Parse and return relevant parts of the response
+        return response;
     }
 }
